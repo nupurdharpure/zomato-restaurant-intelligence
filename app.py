@@ -13,22 +13,28 @@ st.set_page_config(
 # ── Load Data ──────────────────────────────────────────────────
 @st.cache_data
 def load_data():
-    df = pd.read_csv('zomato_clean.csv')
-    df_rated = df[df['Aggregate rating'] > 0]
-    df_india = df_rated[df_rated['Country Code'] == 1]
-    return df_india
+    import os
+    # Works both locally and on Streamlit Cloud
+    base_path = os.path.dirname(os.path.abspath(__file__))
+    csv_path = os.path.join(base_path, 'zomato_clean.csv')
+    
+    data = pd.read_csv(csv_path)
+    data_rated = data[data['Aggregate rating'] > 0]
+    data_india = data_rated[data_rated['Country Code'] == 1]
+    return data_india
 
-df = load_data()
+data = load_data()
+
 
 # ── Sidebar Filters ────────────────────────────────────────────
 st.sidebar.header("🔍 Filters")
 
 # City filter
-cities = ['All Cities'] + sorted(df['City'].unique().tolist())
+cities = ['All Cities'] + sorted(data['City'].unique().tolist())
 selected_city = st.sidebar.selectbox("Select City", cities)
 
 # Cuisine filter
-cuisines = ['All Cuisines'] + sorted(df['Primary Cuisine'].unique().tolist())
+cuisines = ['All Cuisines'] + sorted(data['Primary Cuisine'].unique().tolist())
 selected_cuisine = st.sidebar.selectbox("Select Cuisine", cuisines)
 
 # Price range filter
@@ -38,17 +44,17 @@ price_options = ['All Price Ranges'] + list(price_labels.values())
 selected_price = st.sidebar.selectbox("Select Price Range", price_options)
 
 # ── Apply Filters ──────────────────────────────────────────────
-filtered_df = df.copy()
+filtered_data = data.copy()
 # Apply city filter
 if selected_city != 'All Cities':
-    filtered_df = filtered_df[filtered_df['City'] == selected_city]
+    filtered_data = filtered_data[filtered_data['City'] == selected_city]
 # Apply cuisine filter
 if selected_cuisine != 'All Cuisines':
-    filtered_df = filtered_df[filtered_df['Primary Cuisine'] == selected_cuisine]
+    filtered_data = filtered_data[filtered_data['Primary Cuisine'] == selected_cuisine]
 # Apply price filter
 if selected_price != 'All Price Ranges':
     price_num = [k for k, v in price_labels.items() if v == selected_price][0]
-    filtered_df = filtered_df[filtered_df['Price range'] == price_num]
+    filtered_data = filtered_data[filtered_data['Price range'] == price_num]
 
 
 # ── Title ──────────────────────────────────────────────────────
@@ -58,10 +64,10 @@ st.markdown("---")
 
 # ── Metric Cards ───────────────────────────────────────────────
 col1, col2, col3, col4 = st.columns(4)
-col1.metric("🍴 Total Restaurants", f"{len(filtered_df):,}")
-col2.metric("⭐ Avg Rating", f"{filtered_df['Aggregate rating'].mean():.2f}" if len(filtered_df) > 0 else "N/A")
-col3.metric("💰 Avg Cost for Two", f"₹{filtered_df['Average Cost for two'].mean():.0f}" if len(filtered_df) > 0 else "N/A")
-col4.metric("🚴 Offers Delivery", f"{(filtered_df['Has Online delivery']=='Yes').sum():,}")
+col1.metric("🍴 Total Restaurants", f"{len(filtered_data):,}")
+col2.metric("⭐ Avg Rating", f"{filtered_data['Aggregate rating'].mean():.2f}" if len(filtered_data) > 0 else "N/A")
+col3.metric("💰 Avg Cost for Two", f"₹{filtered_data['Average Cost for two'].mean():.0f}" if len(filtered_data) > 0 else "N/A")
+col4.metric("🚴 Offers Delivery", f"{(filtered_data['Has Online delivery']=='Yes').sum():,}")
 
 
 st.markdown("---")
@@ -72,7 +78,7 @@ col1, col2 = st.columns(2)
 with col1:
     st.subheader("🏙️ Restaurants by City")
     if selected_city == 'All Cities':
-        city_counts = filtered_df['City'].value_counts().head(10).reset_index()
+        city_counts = filtered_data['City'].value_counts().head(10).reset_index()
         city_counts.columns = ['City', 'Total']
         fig, ax = plt.subplots(figsize=(8, 5))
         ax.barh(city_counts['City'], city_counts['Total'], color='#E23744')
@@ -86,7 +92,7 @@ with col1:
         plt.close()
     else:
         # If a city is selected show locality breakdown instead
-        locality_counts = filtered_df['Locality'].value_counts().head(10).reset_index()
+        locality_counts = filtered_data['Locality'].value_counts().head(10).reset_index()
         locality_counts.columns = ['Locality', 'Total']
         fig, ax = plt.subplots(figsize=(8, 5))
         ax.barh(locality_counts['Locality'], locality_counts['Total'], color='#E23744')
@@ -100,7 +106,7 @@ with col1:
 
 with col2:
     st.subheader("🍜 Top Cuisines")
-    cuisine_counts = filtered_df['Primary Cuisine'].value_counts().head(10).reset_index()
+    cuisine_counts = filtered_data['Primary Cuisine'].value_counts().head(10).reset_index()
     cuisine_counts.columns = ['Cuisine', 'Total']
     fig, ax = plt.subplots(figsize=(8, 5))
     ax.barh(cuisine_counts['Cuisine'], cuisine_counts['Total'], color='#FC8019')
@@ -112,13 +118,13 @@ with col2:
     plt.tight_layout()
     st.pyplot(fig)
     plt.close()    
-    
+
 st.markdown("---")
 
 # ── Row 2: Price vs Rating ─────────────────────────────────────
 st.subheader("💸 Does Spending More Mean Better Food?")
 
-price_data = filtered_df.groupby('Price range')['Aggregate rating'].mean().reset_index()
+price_data = filtered_data.groupby('Price range')['Aggregate rating'].mean().reset_index()
 price_data.columns = ['Price Range', 'Avg Rating']
 price_data['Price Range'] = price_data['Price Range'].map({
     1: 'Budget', 2: 'Mid', 3: 'Premium', 4: 'Luxury'
@@ -136,8 +142,8 @@ for bar in bars:
             f'{height:.2f}', ha='center', fontsize=11, fontweight='bold')
 ax.set_ylim(2.5, 4.5)
 ax.set_ylabel('Average Rating')
-if len(filtered_df) > 0:
-    avg = filtered_df['Aggregate rating'].mean()
+if len(filtered_data) > 0:
+    avg = filtered_data['Aggregate rating'].mean()
     ax.axhline(y=avg, color='gray', linestyle='--', linewidth=1.5,
                label=f'Current avg: {avg:.2f}')
     ax.legend()
@@ -151,10 +157,10 @@ st.markdown("---")
 st.subheader("📊 Rating Distribution")
 
 fig, ax = plt.subplots(figsize=(10, 4))
-ax.hist(filtered_df['Aggregate rating'], bins=20,
+ax.hist(filtered_data['Aggregate rating'], bins=20,
         color='#E23744', edgecolor='white', linewidth=0.5)
-if len(filtered_df) > 0:
-    avg = filtered_df['Aggregate rating'].mean()
+if len(filtered_data) > 0:
+    avg = filtered_data['Aggregate rating'].mean()
     ax.axvline(x=avg, color='#2c3e50', linestyle='--',
                linewidth=2, label=f'Average: {avg:.2f}')
     ax.legend()
@@ -169,7 +175,7 @@ st.markdown("---")
 # ── Row 4: Top Restaurants Table ───────────────────────────────
 st.subheader("🏆 Top Rated Restaurants")
 
-top_restaurants = filtered_df[filtered_df['Votes'] > 100].sort_values(
+top_restaurants = filtered_data[filtered_data['Votes'] > 100].sort_values(
     'Aggregate rating', ascending=False).head(10)[
     ['Restaurant Name', 'City', 'Primary Cuisine', 
      'Aggregate rating', 'Votes', 'Average Cost for two']
