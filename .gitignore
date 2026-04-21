@@ -1,0 +1,9 @@
+# Jupyter checkpoints
+.ipynb_checkpoints/
+
+# Environment variables
+.env
+
+# Large CSV files we don't need
+zomato_rated.csv
+zomato_unrated.csv
